@@ -1,0 +1,84 @@
+//Bit stuffing and de-stuffing
+#include <iostream>
+using namespace std;
+
+// Function to perform bit stuffing
+char* stuff(char* data, int size) {
+    int newSize = (size / 6) + size;
+    char* stuffedData = new char[newSize];
+    
+    for(int i = 0, j = 0; i < newSize; i++, j++) {
+        if(data[j] == '0' && data[j + 1] == '1') {
+            stuffedData[i] = data[j];
+            int consecutiveOnes = 0;
+            
+            for(consecutiveOnes = 1; consecutiveOnes < 6; consecutiveOnes++) {
+                stuffedData[i + consecutiveOnes] = data[j + consecutiveOnes];
+                if(data[j + consecutiveOnes] != '1') break;
+            }
+            
+            consecutiveOnes--;
+            i += consecutiveOnes;
+            j += consecutiveOnes;
+            
+            if(consecutiveOnes == 5) {
+                stuffedData[i + 1] = '0';
+                i++;
+            }
+        } else {
+            stuffedData[i] = data[j];
+        }
+    }
+    return stuffedData;
+}
+
+// Function to perform bit destuffing
+char* destuff(char* stuffedData, int size) {
+    int stuffedSize = (size / 6) + size;
+    char* destuffedData = new char[size];
+    
+    for(int i = 0, j = 0; i < stuffedSize; i++, j++) {
+        if(stuffedData[i] == '0' && stuffedData[i + 1] == '1') {
+            destuffedData[j] = stuffedData[i];
+            int consecutiveOnes = 0;
+            
+            for(consecutiveOnes = 1; consecutiveOnes < 6; consecutiveOnes++) {
+                destuffedData[j + consecutiveOnes] = stuffedData[i + consecutiveOnes];
+                if(stuffedData[i + consecutiveOnes] != '1') break;
+            }
+            
+            consecutiveOnes--;
+            i += consecutiveOnes;
+            j += consecutiveOnes;
+            
+            if(consecutiveOnes == 5) i++;
+        } else {
+            destuffedData[j] = stuffedData[i];
+        }
+    }
+    return destuffedData;
+}
+
+int main() {
+    int size;
+    cout << "Enter frame size: ";
+    cin >> size;
+    
+    char* data = new char[size];
+    cout << "Enter data frame: ";
+    cin >> data;
+    
+    char* stuffedData = stuff(data, size);
+    cout << "Stuffed data:\t" << stuffedData << endl;
+    cout << "Framed data: 0111110" << stuffedData << "0111110" << endl;
+    
+    char* destuffedData = destuff(stuffedData, size);
+    cout << "Destuffed data:\t" << destuffedData << endl;
+    
+    // Clean up memory
+    delete[] data;
+    delete[] stuffedData;
+    delete[] destuffedData;
+    
+    return 0;
+}
