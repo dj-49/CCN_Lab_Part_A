@@ -1,0 +1,78 @@
+
+#include <iostream>
+using namespace std;
+
+// Function to perform character stuffing
+char* stuffed(char* data, char escapeChar, char flagChar, int size) {
+    // Allocate double size to accommodate worst case of all characters needing stuffing
+    char* finalData = new char[2 * size];
+    
+    // Process each character from input data
+    for(int i = 0, j = 0; i < size; i++, j++) {
+        // If character matches escape or flag character, add flag before it
+        if(data[i] == escapeChar || data[i] == flagChar) {
+            finalData[j] = flagChar;     // Insert flag character
+            j++;                         // Move to next position
+            finalData[j] = data[i];      // Insert original character
+        } else {
+            finalData[j] = data[i];      // Insert character as-is
+        }
+    }
+    return finalData;
+}
+
+// Function to perform character destuffing
+char* destuffed(char* stuffedData, char escapeChar, char flagChar, int size) {
+    // Allocate memory for destuffed data
+    char* finalData = new char[size];
+    
+    // Process each character from stuffed data
+    for(int i = 0, j = 0; i < size; i++, j++) {
+        // If flag character found, skip it and take next character
+        if(stuffedData[j] == flagChar) {
+            j++;    // Skip flag character
+            finalData[i] = stuffedData[j];
+        } else {
+            finalData[i] = stuffedData[j];
+        }
+    }
+    return finalData;
+}
+
+int main() {
+    int size;
+    // Get data size from user
+    cout << "Enter number of characters: ";
+    cin >> size;
+    
+    // Declare data array and special characters
+    char* data = new char[size];
+    char escapeChar = '}';
+    char flagChar = '~';
+    
+    // Get input data from user
+    cout << "Enter data sequence: ";
+    cin >> data;
+    
+    // Display special characters being used
+    cout << "Escape character: " << escapeChar << endl;
+    cout << "Flag character: " << flagChar << endl;
+    
+    // Perform character stuffing
+    char* stuffedData = stuffed(data, escapeChar, flagChar, size);
+    cout << "Stuffed data: " << stuffedData << endl;
+    
+    // Display framed data
+    cout << "Framed data: " << escapeChar << stuffedData << escapeChar << endl;
+    
+    // Perform character destuffing
+    char* destuffedData = destuffed(stuffedData, escapeChar, flagChar, size);
+    cout << "Destuffed data: " << destuffedData << endl;
+    
+    // Clean up memory
+    delete[] data;
+    delete[] stuffedData;
+    delete[] destuffedData;
+    
+    return 0;
+}
