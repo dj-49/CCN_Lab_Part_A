@@ -1,84 +1,305 @@
-//Bit stuffing and de-stuffing
 #include <iostream>
-using namespace std;
+#include <string>
+#include <vector>
+#include <bitset>
+#include <random>
 
-// Function to perform bit stuffing
-char* stuff(char* data, int size) {
-    int newSize = (size / 6) + size;
-    char* stuffedData = new char[newSize];
+/**
+ * This header file implements different data framing techniques used in data communications.
+ * Framing helps in identifying the boundaries of data packets during transmission.
+ */
+
+// Variable length framing with character stuffing
+class VariableCharacterStuffing {
+private:
+    // Special characters used to mark frame boundaries and escape special characters
+    static constexpr char FLAG = 'F';  // Marks the beginning and end of a frame
+    static constexpr char ESC = 'E';   // Used to escape special characters within data
+
+public:
+    /**
+     * Adds frame boundaries and escapes special characters in the data
+     * @param data Original data to be framed
+     * @return Framed data with special characters escaped
+     */
+    static std::string stuff(const std::string& data) {
+        std::string result;
+        // Add start flag
+        result += FLAG;
+
+        // Process each character in the data
+        for (char c : data) {
+            // If we encounter a special character (FLAG or ESC), we need to escape it
+            if (c == FLAG || c == ESC) {
+                result += ESC;  // Add escape character before the special character
+            }
+            result += c;  // Add the character (even if it's special)
+        }
+
+        // Add end flag
+        result += FLAG;
+        return result;
+    }
+
+    /**
+     * Removes frame boundaries and un-escapes special characters
+     * @param stuffedData Data with frame boundaries and escaped characters
+     * @return Original data with frame boundaries and escape characters removed
+     */
+    static std::string unstuff(const std::string& stuffedData) {
+        std::string result;
+        bool escape = false;  // Tracks whether the current character is escaped
+
+        // Process all characters except start and end flags
+        for (size_t i = 1; i < stuffedData.length() - 1; i++) {
+            if (escape) {
+                // If previous character was ESC, include this character as is
+                result += stuffedData[i];
+                escape = false;
+            } else if (stuffedData[i] == ESC) {
+                // Found an escape character, don't add it but set the flag
+                escape = true;
+            } else if (stuffedData[i] != FLAG) {
+                // Regular character, add it to the result
+                result += stuffedData[i];
+            }
+        }
+        return result;
+    }
+};
+
+// Fixed length framing with character stuffing
+class FixedCharacterStuffing {
+private:
+    static const size_t FRAME_SIZE = 8;  // Each frame is exactly 8 characters
+    static const char PADDING = '_';     // Character used to fill incomplete frames
+
+public:
+    /**
+     * Divides data into fixed-size frames and adds padding if needed
+     * @param data Original data to be divided into frames
+     * @return Vector of fixed-size frames
+     */
+    static std::vector<std::string> stuff(const std::string& data) {
+        std::vector<std::string> frames;
+
+        // Process data in chunks of FRAME_SIZE
+        for (size_t i = 0; i < data.length(); i += FRAME_SIZE) {
+            // Extract a chunk of data
+            std::string frame = data.substr(i, FRAME_SIZE);
+            
+            // If the last frame is incomplete, pad it to reach FRAME_SIZE
+            if (frame.length() < FRAME_SIZE) {
+                frame.append(FRAME_SIZE - frame.length(), PADDING);
+            }
+            
+            frames.push_back(frame);
+        }
+
+        return frames;
+    }
+
+    /**
+     * Reassembles original data from fixed-size frames by removing padding
+     * @param frames Vector of fixed-size frames
+     * @return Original data with padding removed
+     */
+    static std::string unstuff(const std::vector<std::string>& frames) {
+        std::string result;
+
+        for (const auto& frame : frames) {
+            // Find the position of the last non-padding character
+            size_t lastChar = frame.find_last_not_of(PADDING);
+            
+            if (lastChar != std::string::npos) {
+                // Add only the non-padding part of the frame
+                result += frame.substr(0, lastChar + 1);
+            }
+        }
+
+        return result;
+    }
+};
+
+// Variable length framing with bit stuffing
+class VariableBitStuffing {
+private:
+    // Pattern used to mark the beginning and end of a frame
+    static const std::string FLAG_PATTERN;
     
-    for(int i = 0, j = 0; i < newSize; i++, j++) {
-        if(data[j] == '0' && data[j + 1] == '1') {
-            stuffedData[i] = data[j];
-            int consecutiveOnes = 0;
+    // Maximum number of consecutive '1' bits allowed before stuffing
+    static const int MAX_CONSECUTIVE_ONES = 5;
+
+public:
+    /**
+     * Converts text to binary and adds bit stuffing to avoid flag pattern conflicts
+     * @param data Original text data
+     * @return Binary string with bit stuffing applied
+     */
+    static std::string stuffBits(const std::string& data) {
+        std::string result;
+        int consecutiveOnes = 0;
+
+        // Add start flag pattern
+        result += FLAG_PATTERN;
+
+        // Process each character in the data
+        for (char c : data) {
+            // Convert character to its 8-bit binary representation
+            std::bitset<8> bits(c);
             
-            for(consecutiveOnes = 1; consecutiveOnes < 6; consecutiveOnes++) {
-                stuffedData[i + consecutiveOnes] = data[j + consecutiveOnes];
-                if(data[j + consecutiveOnes] != '1') break;
+            // Process each bit from most significant to least significant
+            for (int i = 7; i >= 0; i--) {
+                bool bit = bits[i];
+                // Add the bit to the result
+                result += (bit ? '1' : '0');
+
+                if (bit) {  // If bit is '1'
+                    consecutiveOnes++;
+                    // If 5 consecutive '1's are detected, add a '0' to prevent
+                    // accidentally creating a flag pattern in the data
+                    if (consecutiveOnes == MAX_CONSECUTIVE_ONES) {
+                        result += '0';  // Add stuffed '0'
+                        consecutiveOnes = 0;
+                    }
+                } else {  // If bit is '0'
+                    consecutiveOnes = 0;  // Reset the counter
+                }
+            }
+        }
+
+        // Add end flag pattern
+        result += FLAG_PATTERN;
+        return result;
+    }
+
+    /**
+     * Removes bit stuffing and converts binary back to text
+     * @param stuffedData Binary data with bit stuffing
+     * @return Original text data
+     */
+    static std::string unstuffBits(const std::string& stuffedData) {
+        std::string result;
+        std::string currentByte;  // Collects 8 bits to form a character
+        int consecutiveOnes = 0;
+
+        // Calculate positions just after start flag and just before end flag
+        size_t start = FLAG_PATTERN.length();
+        size_t end = stuffedData.length() - FLAG_PATTERN.length();
+
+        // Process bits between start and end flags
+        for (size_t i = start; i < end; i++) {
+            if (stuffedData[i] == '1') {
+                consecutiveOnes++;
+                currentByte += '1';
+            } else {  // Found a '0'
+                if (consecutiveOnes == MAX_CONSECUTIVE_ONES) {
+                    // This is a stuffed bit, ignore it
+                } else {
+                    // This is a genuine '0', add it
+                    currentByte += '0';
+                }
+                consecutiveOnes = 0;
+            }
+
+            // When we have collected 8 bits, convert to a character
+            if (currentByte.length() == 8) {
+                char character = static_cast<char>(std::bitset<8>(currentByte).to_ulong());
+                result += character;
+                currentByte.clear();  // Reset for the next character
+            }
+        }
+        return result;
+    }
+};
+
+// Fixed length framing with bit stuffing
+class FixedBitStuffing {
+private:
+    static const size_t FRAME_SIZE = 8;  // Each frame is exactly 8 bits
+
+public:
+    /**
+     * Divides binary data into fixed-size frames
+     * @param data Original text data to be converted to binary and framed
+     * @return Vector of fixed-size binary frames
+     */
+    static std::vector<std::string> stuffBits(const std::string& data) {
+        std::vector<std::string> frames;
+        std::string binaryData;
+
+        // Convert text data to binary representation
+        for (char c : data) {
+            std::bitset<8> bits(c);
+            binaryData += bits.to_string();
+        }
+
+        // Split binary data into fixed-size frames
+        for (size_t i = 0; i < binaryData.length(); i += FRAME_SIZE) {
+            std::string frame = binaryData.substr(i, FRAME_SIZE);
+            
+            // Pad the last frame if needed
+            if (frame.length() < FRAME_SIZE) {
+                frame.append(FRAME_SIZE - frame.length(), '0');
             }
             
-            consecutiveOnes--;
-            i += consecutiveOnes;
-            j += consecutiveOnes;
-            
-            if(consecutiveOnes == 5) {
-                stuffedData[i + 1] = '0';
-                i++;
+            frames.push_back(frame);
+        }
+
+        return frames;
+    }
+
+    /**
+     * Reassembles binary frames back into original text data
+     * @param frames Vector of binary frames
+     * @return Original text data
+     */
+    static std::string unstuffBits(const std::vector<std::string>& frames) {
+        std::string result;
+        std::string binaryData;
+
+        // Combine all frames into a single binary string
+        for (const auto& frame : frames) {
+            binaryData += frame;
+        }
+
+        // Convert groups of 8 bits back to characters
+        for (size_t i = 0; i < binaryData.length(); i += 8) {
+            std::string byte = binaryData.substr(i, 8);
+            if (byte.length() == 8) {
+                result += static_cast<char>(std::bitset<8>(byte).to_ulong());
             }
-        } else {
-            stuffedData[i] = data[j];
+        }
+
+        return result;
+    }
+};
+
+// Initialize the static FLAG_PATTERN constant
+const std::string VariableBitStuffing::FLAG_PATTERN = "01111110";
+
+/**
+ * Simulates a noisy transmission channel by randomly flipping bits
+ * @param data Original data to transmit
+ * @param errorRate Probability of a bit flip (default 1%)
+ * @return Data after transmission with possible errors
+ */
+std::string simulateTransmission(const std::string& data, double errorRate = 0.01) {
+    std::string received = data;
+    
+    // Set up random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(0.0, 1.0);
+
+    // For each bit in the data
+    for (char& bit : received) {
+        // Generate a random value and check if it's below the error rate
+        if (dis(gen) < errorRate) {
+            // Flip the bit to simulate a transmission error
+            bit = (bit == '0') ? '1' : '0';
         }
     }
-    return stuffedData;
-}
-
-// Function to perform bit destuffing
-char* destuff(char* stuffedData, int size) {
-    int stuffedSize = (size / 6) + size;
-    char* destuffedData = new char[size];
     
-    for(int i = 0, j = 0; i < stuffedSize; i++, j++) {
-        if(stuffedData[i] == '0' && stuffedData[i + 1] == '1') {
-            destuffedData[j] = stuffedData[i];
-            int consecutiveOnes = 0;
-            
-            for(consecutiveOnes = 1; consecutiveOnes < 6; consecutiveOnes++) {
-                destuffedData[j + consecutiveOnes] = stuffedData[i + consecutiveOnes];
-                if(stuffedData[i + consecutiveOnes] != '1') break;
-            }
-            
-            consecutiveOnes--;
-            i += consecutiveOnes;
-            j += consecutiveOnes;
-            
-            if(consecutiveOnes == 5) i++;
-        } else {
-            destuffedData[j] = stuffedData[i];
-        }
-    }
-    return destuffedData;
-}
-
-int main() {
-    int size;
-    cout << "Enter frame size: ";
-    cin >> size;
-    
-    char* data = new char[size];
-    cout << "Enter data frame: ";
-    cin >> data;
-    
-    char* stuffedData = stuff(data, size);
-    cout << "Stuffed data:\t" << stuffedData << endl;
-    cout << "Framed data: 0111110" << stuffedData << "0111110" << endl;
-    
-    char* destuffedData = destuff(stuffedData, size);
-    cout << "Destuffed data:\t" << destuffedData << endl;
-    
-    // Clean up memory
-    delete[] data;
-    delete[] stuffedData;
-    delete[] destuffedData;
-    
-    return 0;
+    return received;
 }
