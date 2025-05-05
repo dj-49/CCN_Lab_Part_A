@@ -1,100 +1,69 @@
-
 #include <iostream>
 #include <string>
-#include <vector>
+#include <bitset>
+using namespace std;
 
-class CRC {
-public:
-    // Function to convert binary string to decimal
-    static int binaryToDecimal(const std::string& binary) {
-        int decimal = 0;
-        for (char bit : binary) {
-            decimal = decimal * 2 + (bit - '0');
+string calcCRC(const string& data, const string& poly) {
+    string rem = data + string(poly.length() - 1, '0');
+    
+    for (size_t i = 0; i <= data.length(); i++) {
+        if (rem[i] == '1') {
+            for (size_t j = 0; j < poly.length(); j++)
+                rem[i+j] = rem[i+j] == poly[j] ? '0' : '1';
         }
-        return decimal;
     }
+    
+    return rem.substr(data.length());
+}
 
-    // Function to convert decimal to binary string
-    static std::string decimalToBinary(int decimal, int length) {
-        std::string binary;
-        while (decimal > 0) {
-            binary = char('0' + (decimal % 2)) + binary;
-            decimal /= 2;
-        }
-        // Pad with zeros if necessary
-        while (binary.length() < length) {
-            binary = '0' + binary;
-        }
-        return binary;
-    }
+string toBin(const string& s) {
+    string bin;
+    for (char c : s) bin += bitset<8>(c).to_string();
+    return bin;
+}
 
-    // Function to perform modulo-2 division
-    static std::string mod2div(const std::string& dividend, const std::string& divisor) {
-        int pick = divisor.length();
-        std::string tmp = dividend.substr(0, pick);
-
-        for (size_t i = 0; i <= dividend.length() - pick; i++) {
-            if (tmp[0] == '1') {
-                for (int j = 1; j < pick; j++) {
-                    tmp[j - 1] = tmp[j] == divisor[j] ? '0' : '1';
-                }
-            } else {
-                for (int j = 1; j < pick; j++) {
-                    tmp[j - 1] = tmp[j];
-                }
-            }
-
-            if (i < dividend.length() - pick) {
-                tmp[pick - 1] = dividend[i + pick];
-            }
-        }
-
-        return tmp.substr(0, pick - 1);
-    }
-
-    // Function to encode data
-    static std::string encode(const std::string& data, const std::string& polynomial) {
-        std::string appended_data = data;
-
-        // Append n-1 zeros to data
-        for (size_t i = 0; i < polynomial.length() - 1; i++) {
-            appended_data += "0";
-        }
-
-        std::string remainder = mod2div(appended_data, polynomial);
-        return data + remainder;
-    }
-
-    // Function to check if received data has any error
-    static bool checkError(const std::string& received_data, const std::string& polynomial) {
-        std::string remainder = mod2div(received_data, polynomial);
-        return remainder.find('1') != std::string::npos;
-    }
-};
+bool verifyCRC(const string& data, const string& poly) {
+    string rem = calcCRC(data.substr(0, data.length() - poly.length() + 1), poly);
+    return rem == data.substr(data.length() - poly.length() + 1);
+}
 
 int main() {
-    std::string data, polynomial;
-
-    std::cout << "Enter data bits: ";
-    std::getline(std::cin, data);
-
-    std::cout << "Enter generator polynomial: ";
-    std::getline(std::cin, polynomial);
-
-    // Encode data
-    std::string encoded_data = CRC::encode(data, polynomial);
-    std::cout << "\nEncoded Data: " << encoded_data << std::endl;
-
-    // Verify received data
-    std::string received_data;
-    std::cout << "\nEnter received data: ";
-    std::getline(std::cin, received_data);
-
-    if (CRC::checkError(received_data, polynomial)) {
-        std::cout << "Error detected in received data!" << std::endl;
-    } else {
-        std::cout << "No error detected in received data." << std::endl;
+    string input, poly;
+    char choice;
+    
+    cout << "=== CRC Calculator ===" << endl;
+    cout << "Enter data: ";
+    getline(cin, input);
+    
+    cout << "Binary input? (y/n): ";
+    cin >> choice;
+    cin.ignore();
+    
+    string data = (choice == 'y' || choice == 'Y') ? input : toBin(input);
+    if (choice != 'y' && choice != 'Y')
+        cout << "Binary: " << data << endl;
+    
+    cout << "Enter polynomial: ";
+    getline(cin, poly);
+    
+    string crc = calcCRC(data, poly);
+    string encoded = data + crc;
+    
+    cout << "CRC: " << crc << endl;
+    cout << "Encoded data with CRC: " << encoded << endl;
+    
+    cout << "\nVerify received data? (y/n): ";
+    cin >> choice;
+    
+    if (choice == 'y' || choice == 'Y') {
+        string received;
+        cout << "Enter received data: ";
+        cin.ignore();
+        getline(cin, received);
+        
+        bool valid = verifyCRC(received, poly);
+        cout << (valid ? "No errors detected!" : "Error detected in received data!") << endl;
     }
-
+    
     return 0;
 }
