@@ -3,28 +3,35 @@
 #include <bitset>
 using namespace std;
 
+// Calculate CRC for the given data and polynomial
 string calcCRC(const string& data, const string& poly) {
     string rem = data + string(poly.length() - 1, '0');
     
-    for (size_t i = 0; i <= data.length(); i++) {
+    for (size_t i = 0; i < data.length(); i++) {
         if (rem[i] == '1') {
-            for (size_t j = 0; j < poly.length(); j++)
-                rem[i+j] = rem[i+j] == poly[j] ? '0' : '1';
+            for (size_t j = 0; j < poly.length(); j++) {
+                rem[i+j] = (rem[i+j] == poly[j]) ? '0' : '1';
+            }
         }
     }
     
     return rem.substr(data.length());
 }
 
+// Convert ASCII string to binary
 string toBin(const string& s) {
     string bin;
-    for (char c : s) bin += bitset<8>(c).to_string();
+    for (char c : s) {
+        bin += bitset<8>(c).to_string();
+    }
     return bin;
 }
 
+// Verify if received data contains errors
 bool verifyCRC(const string& data, const string& poly) {
-    string rem = calcCRC(data.substr(0, data.length() - poly.length() + 1), poly);
-    return rem == data.substr(data.length() - poly.length() + 1);
+    string remainder = calcCRC(data.substr(0, data.length() - (poly.length() - 1)), poly);
+    string expected = data.substr(data.length() - (poly.length() - 1));
+    return remainder == expected;
 }
 
 int main() {
