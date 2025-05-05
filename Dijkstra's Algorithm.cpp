@@ -2,41 +2,24 @@
 #include <vector>
 #include <queue>
 #include <limits>
-#include <algorithm>
-
 using namespace std;
 
-// Function to find shortest paths from source to all vertices
-void dijkstra(const vector<vector<pair<int, int>>>& graph, int source, vector<int>& dist, vector<int>& parent) {
-    int n = graph.size();
-    dist.assign(n, numeric_limits<int>::max());
-    parent.assign(n, -1);
+void dijkstra(const vector<vector<pair<int, int>>>& g, int src, vector<int>& dist, vector<int>& parent) {
+    dist.assign(g.size(), numeric_limits<int>::max());
+    parent.assign(g.size(), -1);
+    dist[src] = 0;
     
-    // Priority queue to store vertices that need to be processed
-    // pair: (distance, vertex)
-    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> pq;
-    
-    // Distance from source to itself is 0
-    dist[source] = 0;
-    pq.push({0, source});
+    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<>> pq;
+    pq.push({0, src});
     
     while (!pq.empty()) {
-        int u = pq.top().second;
-        int d = pq.top().first;
-        pq.pop();
+        auto [d, u] = pq.top(); pq.pop();
         
-        // Skip if we've already found a better path
-        if (d > dist[u])
-            continue;
+        if (d > dist[u]) continue;
         
-        // Process all neighbors of u
-        for (const auto& edge : graph[u]) {
-            int v = edge.first;
-            int weight = edge.second;
-            
-            // If we can find a shorter path to v through u
-            if (dist[u] + weight < dist[v]) {
-                dist[v] = dist[u] + weight;
+        for (auto [v, w] : g[u]) {
+            if (dist[u] + w < dist[v]) {
+                dist[v] = dist[u] + w;
                 parent[v] = u;
                 pq.push({dist[v], v});
             }
@@ -44,44 +27,34 @@ void dijkstra(const vector<vector<pair<int, int>>>& graph, int source, vector<in
     }
 }
 
-// Function to print the shortest path from source to destination
-void printPath(const vector<int>& parent, int destination) {
-    if (parent[destination] == -1) {
-        cout << destination;
-        return;
-    }
-    
-    printPath(parent, parent[destination]);
-    cout << " -> " << destination;
+void printPath(const vector<int>& parent, int dest) {
+    if (parent[dest] == -1) { cout << dest; return; }
+    printPath(parent, parent[dest]);
+    cout << " -> " << dest;
 }
 
 int main() {
-    int n, m; // n = vertices, m = edges
+    int n, m;
     cout << "Enter the number of vertices and edges: ";
     cin >> n >> m;
     
-    // Create adjacency list representation of the graph
-    // graph[u] contains a list of pairs (v, weight) where v is adjacent to u with weight 'weight'
     vector<vector<pair<int, int>>> graph(n);
     
-    cout << "Enter edges (u v weight): " << endl;
+    cout << "Enter edges (u v weight):" << endl;
     for (int i = 0; i < m; i++) {
         int u, v, w;
         cin >> u >> v >> w;
         graph[u].push_back({v, w});
-        // For undirected graph, uncomment the next line
-        // graph[v].push_back({u, w});
+        // For undirected graph: graph[v].push_back({u, w});
     }
     
     int source;
     cout << "Enter source vertex: ";
     cin >> source;
     
-    // Find shortest paths
     vector<int> dist, parent;
     dijkstra(graph, source, dist, parent);
     
-    // Print results
     cout << "Shortest distances from source " << source << ":" << endl;
     for (int i = 0; i < n; i++) {
         cout << "To vertex " << i << ": ";
