@@ -13,13 +13,12 @@ private:
 
 public:
     DVR(int nodes) : n(nodes) {
-        g.assign(n, vector<int>(n, INF));
-        for (int i = 0; i < n; i++) g[i][i] = 0;
-        d = g;
+        g = d = vector<vector<int>>(n, vector<int>(n, INF));
         next.assign(n, vector<int>(n, -1));
-        for (int i = 0; i < n; i++)
-            for (int j = 0; j < n; j++)
-                if (i == j || g[i][j] < INF) next[i][j] = j;
+        for (int i = 0; i < n; i++) {
+            g[i][i] = d[i][i] = 0;
+            next[i][i] = i;
+        }
     }
     
     void addLink(int from, int to, int wt) {
@@ -62,8 +61,7 @@ public:
     
     void showTable(int node) {
         cout << "\nRouting table for " << node << ":" << endl;
-        cout << "Dest Dist Next" << endl;
-        cout << "-------------" << endl;
+        cout << "Dest Dist Next\n-------------" << endl;
         for (int j = 0; j < n; j++) {
             cout << setw(4) << j << " ";
             if (d[node][j] == INF) cout << setw(4) << "∞" << " N/A" << endl;
@@ -110,6 +108,7 @@ public:
         cout << "\nLink failure: " << from << "→" << to << endl;
         g[from][to] = INF;
         
+        // Reset distance and next-hop tables
         d = g;
         next.assign(n, vector<int>(n, -1));
         for (int i = 0; i < n; i++)
@@ -124,13 +123,11 @@ int main() {
     DVR net(5);
     
     // Add bidirectional links
-    net.addLink(0,1,1); net.addLink(1,0,1);
-    net.addLink(0,3,7); net.addLink(3,0,7);
-    net.addLink(1,2,2); net.addLink(2,1,2);
-    net.addLink(1,3,4); net.addLink(3,1,4);
-    net.addLink(2,3,2); net.addLink(3,2,2);
-    net.addLink(2,4,5); net.addLink(4,2,5);
-    net.addLink(3,4,1); net.addLink(4,3,1);
+    int links[][3] = {{0,1,1}, {0,3,7}, {1,2,2}, {1,3,4}, {2,3,2}, {2,4,5}, {3,4,1}};
+    for (auto& link : links) {
+        net.addLink(link[0], link[1], link[2]);
+        net.addLink(link[1], link[0], link[2]); // Add reverse link
+    }
     
     cout << "=== DVR Simulation ===" << endl;
     net.showTopology();
