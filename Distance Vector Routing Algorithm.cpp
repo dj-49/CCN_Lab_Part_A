@@ -2,7 +2,6 @@
 #include <vector>
 #include <limits>
 #include <iomanip>
-#include <algorithm>
 using namespace std;
 
 class DVR {
@@ -30,7 +29,7 @@ public:
         bool updated; int iter = 0;
         do {
             updated = false;
-            cout << "\nIter " << ++iter << ":" << endl;
+            cout << "Iter " << ++iter << endl;
             
             for (int i = 0; i < n; i++)
                 for (int j = 0; j < n; j++)
@@ -42,73 +41,40 @@ public:
                                     d[i][j] = newDist;
                                     next[i][j] = next[i][k];
                                     updated = true;
-                                    cout << i << "→" << j << " via " << k << ": " << newDist << endl;
                                 }
                             }
-            
-            if (updated) {
-                cout << "Vectors:" << endl;
-                for (int i = 0; i < n; i++) {
-                    cout << i << ": ";
-                    for (int j = 0; j < n; j++)
-                        cout << (d[i][j] == INF ? "∞ " : to_string(d[i][j]) + " ");
-                    cout << endl;
-                }
-            }
         } while (updated);
-        cout << "Converged after " << iter << " iterations." << endl;
+        cout << "Converged: " << iter << " iterations\n";
     }
     
     void showTable(int node) {
-        cout << "\nRouting table for " << node << ":" << endl;
-        cout << "Dest Dist Next\n-------------" << endl;
+        cout << "Node " << node << " table:\n";
         for (int j = 0; j < n; j++) {
-            cout << setw(4) << j << " ";
-            if (d[node][j] == INF) cout << setw(4) << "∞" << " N/A" << endl;
-            else cout << setw(4) << d[node][j] << " " << setw(4) << next[node][j] << endl;
+            if (j != node) {
+                cout << "To " << j << ": ";
+                if (d[node][j] == INF) cout << "∞\n";
+                else cout << "dist=" << d[node][j] << " next=" << next[node][j] << endl;
+            }
         }
     }
     
-    void showPath(int src, int dst) {
+    void showPath(int src, int dst) {cout<<"Updated Path:";
         if (d[src][dst] == INF) {
-            cout << "No path from " << src << " to " << dst << endl;
+            cout << "No path " << src << "→" << dst << endl;
             return;
         }
         
-        cout << "Path " << src << "→" << dst << ": ";
-        vector<int> path;
-        for (int curr = src; curr != dst; curr = next[curr][dst]) {
-            path.push_back(curr);
-            if (find(path.begin(), path.end()-1, curr) != path.end()-1) {
-                cout << "Loop!" << endl;
-                return;
-            }
-        }
-        path.push_back(dst);
-        
-        for (size_t i = 0; i < path.size(); i++)
-            cout << path[i] << (i < path.size()-1 ? "→" : "");
-        cout << " (" << d[src][dst] << ")" << endl;
-    }
-    
-    void showTopology() {
-        cout << "\nNetwork:\n   ";
-        for (int i = 0; i < n; i++) cout << setw(3) << i;
-        cout << endl << string(3 + 3*n, '-') << endl;
-        
-        for (int i = 0; i < n; i++) {
-            cout << setw(2) << i << "|";
-            for (int j = 0; j < n; j++)
-                cout << setw(3) << (g[i][j] == INF ? "∞" : to_string(g[i][j]));
-            cout << endl;
-        }
+        cout << src << "→" << dst << ": ";
+        for (int curr = src; curr != dst; curr = next[curr][dst])
+            cout << curr << "→";
+        cout << dst << " (" << d[src][dst] << ")\n";
     }
     
     void linkFailure(int from, int to) {
-        cout << "\nLink failure: " << from << "→" << to << endl;
+        cout << "Link down: " << from << "→" << to << endl;
         g[from][to] = INF;
         
-        // Reset distance and next-hop tables
+        // Reset tables
         d = g;
         next.assign(n, vector<int>(n, -1));
         for (int i = 0; i < n; i++)
@@ -122,30 +88,26 @@ public:
 int main() {
     DVR net(5);
     
-    // Add bidirectional links
+    // Add links (bidirectional)
     int links[][3] = {{0,1,1}, {0,3,7}, {1,2,2}, {1,3,4}, {2,3,2}, {2,4,5}, {3,4,1}};
     for (auto& link : links) {
         net.addLink(link[0], link[1], link[2]);
-        net.addLink(link[1], link[0], link[2]); // Add reverse link
+        net.addLink(link[1], link[0], link[2]);
     }
     
-    cout << "=== DVR Simulation ===" << endl;
-    net.showTopology();
+    cout << "=== Initial State ===\n";
     net.compute();
     
-    cout << "\n=== Final Tables ===" << endl;
     for (int i = 0; i < 5; i++) net.showTable(i);
     
-    cout << "\n=== Paths ===" << endl;
     net.showPath(0,4);
     net.showPath(4,0);
     
+    cout << "\n=== After Failure ===\n";
     net.linkFailure(3,4);
     
-    cout << "\n=== Tables After Failure ===" << endl;
     for (int i = 0; i < 5; i++) net.showTable(i);
     
-    cout << "\n=== Updated Paths ===" << endl;
     net.showPath(0,4);
     net.showPath(4,0);
     
