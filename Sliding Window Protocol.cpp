@@ -4,99 +4,86 @@
 #include <random>
 #include <chrono>
 #include <thread>
-
 using namespace std;
 
-class SlidingWindowProtocol {
+class SlidingWindow {
 private:
-    int windowSize, totalPackets, base = 0, nextSeqNum = 0;
-    vector<bool> ackReceived;
+    int windowSize, totalPackets, base = 0, nextSeq = 0;
+    vector<bool> acked;
     queue<int> network;
-    default_random_engine generator{chrono::system_clock::now().time_since_epoch().count()};
-    bernoulli_distribution packetLoss;
-
-public:
-    SlidingWindowProtocol(int wSize, int packets, double lossProb) : 
-        windowSize(wSize), totalPackets(packets), packetLoss(lossProb) {
-        ackReceived.resize(totalPackets, false);
+    mt19937 rng{random_device{}()};
+    bernoulli_distribution lossChance;
+    
+    bool sendWithLoss(int pktNum) {
+        if (!lossChance(rng)) {
+            cout << "Sent packet " << pktNum << endl;
+            network.push(pktNum);
+            return true;
+        }
+        cout << "Lost packet " << pktNum << endl;
+        return false;
     }
     
-    void sendPackets() {
+public:
+    SlidingWindow(int wSize, int packets, double lossProb) : 
+        windowSize(wSize), totalPackets(packets), 
+        acked(packets, false), lossChance(lossProb) {}
+    
+    void simulate() {
         while (base < totalPackets) {
             // Send packets within window
-            while (nextSeqNum < base + windowSize && nextSeqNum < totalPackets) {
-                cout << "Sending packet " << nextSeqNum << endl;
-                
-                if (!packetLoss(generator)) {
-                    network.push(nextSeqNum);
-                } else {
-                    cout << "  (Packet " << nextSeqNum << " was lost in transmission)" << endl;
-                }
-                
-                nextSeqNum++;
+            while (nextSeq < base + windowSize && nextSeq < totalPackets) {
+                sendWithLoss(nextSeq++);
                 this_thread::sleep_for(chrono::milliseconds(100));
             }
             
-            receiveAcks();
+            processAcks();
             
-            if (nextSeqNum == base + windowSize || nextSeqNum == totalPackets) {
-                cout << "Window full or all packets sent. Waiting for ACKs..." << endl;
-                receiveAcks();
+            if (nextSeq == base + windowSize || nextSeq == totalPackets) {
+                cout << "Window: [" << base << "-" << min(base + windowSize - 1, totalPackets - 1) << "]" << endl;
+                processAcks();
             }
         }
-        
-        cout << "All packets have been successfully transmitted and acknowledged." << endl;
+        cout << "All packets transmitted successfully." << endl;
     }
     
-    void receiveAcks() {
-        // Process all packets in the network
+    void processAcks() {
+        // Process packets in network
         while (!network.empty()) {
-            int packetNum = network.front();
+            int pkt = network.front();
             network.pop();
             
-            cout << "Receiver got packet " << packetNum << endl;
-            
-            if (!packetLoss(generator)) {
-                cout << "  ACK " << packetNum << " sent back to sender" << endl;
-                ackReceived[packetNum] = true;
+            if (!lossChance(rng)) {
+                cout << "ACK " << pkt << " received" << endl;
+                acked[pkt] = true;
                 
-                // Update base (slide window)
-                while (base < totalPackets && ackReceived[base])
-                    base++;
-                
-                cout << "  Window slides to [" << base << " - " 
-                     << min(base + windowSize - 1, totalPackets - 1) << "]" << endl;
+                // Slide window
+                while (base < totalPackets && acked[base]) base++;
+                if (base > 0)
+                    cout << "Window slides to [" << base << "-" 
+                         << min(base + windowSize - 1, totalPackets - 1) << "]" << endl;
             } else {
-                cout << "  ACK " << packetNum << " was lost" << endl;
+                cout << "ACK " << pkt << " lost" << endl;
             }
             
-            this_thread::sleep_for(chrono::milliseconds(200));
+            this_thread::sleep_for(chrono::milliseconds(100));
         }
         
         // Retransmit unacknowledged packets
-        for (int i = base; i < nextSeqNum; i++) {
-            if (!ackReceived[i]) {
-                cout << "Timeout for packet " << i << ", retransmitting..." << endl;
-                
-                if (!packetLoss(generator)) {
-                    network.push(i);
-                } else {
-                    cout << "  (Retransmitted packet " << i << " was lost)" << endl;
-                }
-                
-                this_thread::sleep_for(chrono::milliseconds(150));
+        for (int i = base; i < nextSeq; i++) {
+            if (!acked[i]) {
+                cout << "Timeout: retransmitting " << i << endl;
+                sendWithLoss(i);
             }
         }
     }
 };
 
 int main() {
-    cout << "Sliding Window Protocol Demonstration" << endl;
-    cout << "Window Size: 3" << endl;
-    cout << "Total Packets: 9" << endl;
-    cout << "Simulated Packet Loss Probability: 0.3" << endl;
-    cout << "-------------------------------------------" << endl;
+    cout << "Sliding Window Protocol Demo\n";
+    cout << "Window Size: 4, Packets: 9, Loss Prob: 0.3\n";
+    cout << "------------------------------\n";
     
-    SlidingWindowProtocol(4, 9, 0.3).sendPackets();
+    SlidingWindow(4, 9, 0.3).simulate();
     return 0;
 }
