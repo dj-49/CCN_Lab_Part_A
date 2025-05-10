@@ -20,17 +20,7 @@ public:
             decMap[cipher[i]] = plain[i];
         }
     }
-    
-    // Constructor with custom cipher
-    SubstitutionCipher(const string& custom) {
-        if (custom.length() != plain.length())
-            throw invalid_argument("Custom cipher must match plain alphabet length");
-        cipher = custom;
-        for (size_t i = 0; i < plain.length(); i++) {
-            encMap[plain[i]] = cipher[i];
-            decMap[cipher[i]] = plain[i];
-        }
-    }
+
     
     // Process text using provided mapping
     string process(const string& text, const unordered_map<char, char>& map) {
