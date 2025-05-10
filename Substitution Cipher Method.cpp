@@ -1,83 +1,69 @@
 #include <iostream>
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <random>
 #include <algorithm>
-
 using namespace std;
 
 class SubstitutionCipher {
 private:
-    string plainAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?-_";
-    string cipherAlphabet;
-    map<char, char> encryptionMap, decryptionMap;
-
-    void createMappings() {
-        for (size_t i = 0; i < plainAlphabet.length(); i++) {
-            encryptionMap[plainAlphabet[i]] = cipherAlphabet[i];
-            decryptionMap[cipherAlphabet[i]] = plainAlphabet[i];
+    string plain = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?-_";
+    string cipher;
+    unordered_map<char, char> encMap, decMap;
+    
+public:
+    // Default constructor with random cipher
+    SubstitutionCipher() : cipher(plain) {
+        shuffle(cipher.begin(), cipher.end(), mt19937{random_device{}()});
+        for (size_t i = 0; i < plain.length(); i++) {
+            encMap[plain[i]] = cipher[i];
+            decMap[cipher[i]] = plain[i];
         }
     }
-
-public:
-    // Constructor with random cipher alphabet
-    SubstitutionCipher() {
-        cipherAlphabet = plainAlphabet;
-        shuffle(cipherAlphabet.begin(), cipherAlphabet.end(), mt19937{random_device{}()});
-        createMappings();
+    
+    // Constructor with custom cipher
+    SubstitutionCipher(const string& custom) {
+        if (custom.length() != plain.length())
+            throw invalid_argument("Custom cipher must match plain alphabet length");
+        cipher = custom;
+        for (size_t i = 0; i < plain.length(); i++) {
+            encMap[plain[i]] = cipher[i];
+            decMap[cipher[i]] = plain[i];
+        }
     }
     
-    // Constructor with custom cipher alphabet
-    SubstitutionCipher(const string& customCipherAlphabet) {
-        if (customCipherAlphabet.length() != plainAlphabet.length())
-            throw invalid_argument("Custom cipher alphabet must match plain alphabet length");
-        cipherAlphabet = customCipherAlphabet;
-        createMappings();
-    }
-    
-    // Encrypt a message
-    string encrypt(const string& message) {
+    // Process text using provided mapping
+    string process(const string& text, const unordered_map<char, char>& map) {
         string result;
-        for (char c : message)
-            result += encryptionMap.count(c) ? encryptionMap[c] : c;
+        for (char c : text)
+            result += map.count(c) ? map.at(c) : c;
         return result;
     }
     
-    // Decrypt a message
-    string decrypt(const string& ciphertext) {
-        string result;
-        for (char c : ciphertext)
-            result += decryptionMap.count(c) ? decryptionMap[c] : c;
-        return result;
-    }
+    string encrypt(const string& message) { return process(message, encMap); }
+    string decrypt(const string& message) { return process(message, decMap); }
     
-    // Get the current cipher key
-    string getCipherKey() const { return cipherAlphabet; }
-    
-    // Show the current mapping
-    void displayMapping() const {
-        cout << "Substitution Cipher Mapping:" << endl
-             << "Plain alphabet:  " << plainAlphabet << endl
-             << "Cipher alphabet: " << cipherAlphabet << endl;
+    void show() const {
+        cout << "Plain:  " << plain << endl
+             << "Cipher: " << cipher << endl;
     }
 };
 
 int main() {
     try {
         SubstitutionCipher cipher;
-        
-        cout << "=== Substitution Cipher Demonstration ===" << endl;
-        cipher.displayMapping();
-        
         string message;
-        cout << "\nEnter a message to encrypt: ";
+        
+        cout << "=== Substitution Cipher ===" << endl;
+        cipher.show();
+        
+        cout << "\nEnter message: ";
         getline(cin, message);
         
         string encrypted = cipher.encrypt(message);
-        cout << "\nEncrypted message: " << encrypted << endl;
+        cout << "\nEncrypted: " << encrypted << endl;
         
-        string decrypted = cipher.decrypt(encrypted);
-        cout << "Decrypted message: " << decrypted << endl;
+        cout << "Decrypted: " << cipher.decrypt(encrypted) << endl;
         
     } catch (const exception& e) {
         cerr << "Error: " << e.what() << endl;
