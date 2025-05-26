@@ -3,70 +3,57 @@
 #include <thread>
 #include <random>
 #include <iomanip>
-
 using namespace std;
 
 class LeakyBucket {
-private:
+    int cap, rate, inTotal = 0, outTotal = 0, dropTotal = 0;
     queue<int> bucket;
-    int bucketCapacity, outflowRate;
-    int totalPacketsArrived = 0, totalPacketsTransmitted = 0, totalPacketsDropped = 0;
-    default_random_engine generator{chrono::system_clock::now().time_since_epoch().count()};
-    poisson_distribution<int> packetArrival;
+    default_random_engine gen{static_cast<unsigned>(chrono::system_clock::now().time_since_epoch().count())};
+    poisson_distribution<> arrival;
 
 public:
-    LeakyBucket(int capacity, int rate, double arrivalMean) : 
-        bucketCapacity(capacity), outflowRate(rate), packetArrival(arrivalMean) {}
+    LeakyBucket(int c, int r, double mean) : cap(c), rate(r), arrival(mean) {}
 
-    void simulateNetworkTraffic(int simulationTime) {
-        cout << "Leaky Bucket Algorithm Simulation\n"
-             << "Bucket Capacity: " << bucketCapacity << " packets\n"
-             << "Outflow Rate: " << outflowRate << " packets/second\n\n"
-             << "Simulation started for " << simulationTime << " seconds...\n"
-             << left << setw(10) << "Time(s)" << setw(15) << "Packets In" 
-             << setw(15) << "Bucket Size" << setw(15) << "Packets Out" 
-             << setw(15) << "Packets Dropped\n"
-             << string(70, '-') << endl;
+    void simulate(int seconds) {
+        cout << "Leaky Bucket Simulation\nCapacity: " << cap 
+             << ", Rate: " << rate << " pkt/s, Duration: " << seconds << "s\n\n"
+             << left << setw(8) << "Time" << setw(12) << "In" 
+             << setw(12) << "Bucket" << setw(12) << "Out" 
+             << setw(12) << "Dropped" << "\n" << string(56, '-') << "\n";
 
-        for (int currentSecond = 1; currentSecond <= simulationTime; currentSecond++) {
-            int incomingPackets = packetArrival(generator);
-            totalPacketsArrived += incomingPackets;
-            
-            int droppedPackets = 0;
-            for (int i = 0; i < incomingPackets; i++) {
-                if (bucket.size() < bucketCapacity)
-                    bucket.push(currentSecond);
+        for (int t = 1; t <= seconds; ++t) {
+            int in = arrival(gen);
+            int drop = 0;
+            inTotal += in;
+
+            // Attempt to enqueue incoming packets
+            for (int i = 0; i < in; ++i) {
+                if (bucket.size() < static_cast<size_t>(cap))
+                    bucket.push(1);  // Content doesn't matter
                 else
-                    droppedPackets++;
+                    ++drop;
             }
-            totalPacketsDropped += droppedPackets;
-            
-            int outgoingPackets = min(outflowRate, static_cast<int>(bucket.size()));
-            for (int i = 0; i < outgoingPackets; i++)
-                bucket.pop();
-                
-            totalPacketsTransmitted += outgoingPackets;
-            
-            cout << left << setw(10) << currentSecond 
-                 << setw(15) << incomingPackets 
-                 << setw(15) << bucket.size() 
-                 << setw(15) << outgoingPackets 
-                 << setw(15) << droppedPackets << endl;
-            
+            dropTotal += drop;
+
+            int out = min(rate, static_cast<int>(bucket.size()));
+            for (int i = 0; i < out; ++i) bucket.pop();
+            outTotal += out;
+
+            cout << setw(8) << t << setw(12) << in << setw(12) << bucket.size()
+                 << setw(12) << out << setw(12) << drop << "\n";
+
             this_thread::sleep_for(chrono::milliseconds(100));
         }
-        
-        cout << "\nSimulation completed.\n"
-             << "Total packets arrived: " << totalPacketsArrived << "\n"
-             << "Total packets transmitted: " << totalPacketsTransmitted << "\n"
-             << "Total packets dropped: " << totalPacketsDropped << "\n"
-             << "Final bucket size: " << bucket.size() << " packets\n"
-             << "Transmission efficiency: " << fixed << setprecision(2) 
-             << (totalPacketsTransmitted * 100.0) / totalPacketsArrived << "%" << endl;
+
+        double efficiency = inTotal ? (outTotal * 100.0) / inTotal : 0;
+        cout << "\nSummary:\nPackets In: " << inTotal 
+             << ", Out: " << outTotal << ", Dropped: " << dropTotal 
+             << ", Final Bucket: " << bucket.size()
+             << "\nEfficiency: " << fixed << setprecision(2) << efficiency << "%\n";
     }
 };
 
 int main() {
-    LeakyBucket(10, 3, 4.0).simulateNetworkTraffic(20);
+    LeakyBucket(10, 3, 4.0).simulate(20);
     return 0;
 }
