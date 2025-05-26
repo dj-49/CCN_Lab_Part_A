@@ -2,144 +2,117 @@
 #include <vector>
 #include <string>
 #include <bitset>
-#include <algorithm>
 using namespace std;
 
-// Constants
 const char FLAG = '~', ESC = '^';
 const string BIT_FLAG = "01111110";
 
-// Byte stuffing operations
+// Byte stuffing
 string byteStuff(const string& data) {
-    string result(1, FLAG);
+    string res = string(1, FLAG);
     for (char c : data) {
-        if (c == FLAG || c == ESC) result += ESC;
-        result += c;
+        if (c == FLAG || c == ESC) res += ESC;
+        res += c;
     }
-    return result + FLAG;
+    return res + FLAG;
 }
 
+// Byte destuffing
 string byteDestuff(const string& data) {
     if (data.size() < 2) return "";
-    string result;
-    bool escaped = false;
-    for (size_t i = 1; i < data.length() - 1; i++) {
-        if (data[i] == ESC && !escaped) escaped = true;
-        else { result += data[i]; escaped = false; }
+    string res;
+    for (size_t i = 1; i < data.size() - 1; ++i) {
+        if (data[i] == ESC) { ++i; if (i < data.size() - 1) res += data[i]; }
+        else res += data[i];
     }
-    return result;
+    return res;
 }
 
-// Bit stuffing operations
-string bitStuff(const string& binary) {
-    string result = BIT_FLAG;
+// Bit stuffing
+string bitStuff(const string& bin) {
+    string res = BIT_FLAG;
     int ones = 0;
-    for (char bit : binary) {
-        result += bit;
-        if (bit == '1') {
-            if (++ones == 5) { result += '0'; ones = 0; }
-        } else ones = 0;
+    for (char b : bin) {
+        res += b;
+        if (b == '1') { if (++ones == 5) { res += '0'; ones = 0; } }
+        else ones = 0;
     }
-    return result + BIT_FLAG;
+    return res + BIT_FLAG;
 }
 
+// Bit destuffing
 string bitDestuff(const string& data) {
-    if (data.length() < 16 || data.substr(0, 8) != BIT_FLAG || data.substr(data.length() - 8) != BIT_FLAG) return "";
-    string payload = data.substr(8, data.length() - 16);
-    string result;
+    if (data.size() < 16 || data.substr(0, 8) != BIT_FLAG || data.substr(data.size() - 8) != BIT_FLAG) return "";
+    string res, payload = data.substr(8, data.size() - 16);
     int ones = 0;
-    for (size_t i = 0; i < payload.length(); i++) {
-        result += payload[i];
-        if (payload[i] == '1') {
-            if (++ones == 5 && i + 1 < payload.length() && payload[i + 1] == '0') {
-                i++; ones = 0;
-            }
-        } else ones = 0;
+    for (size_t i = 0; i < payload.size(); ++i) {
+        res += payload[i];
+        if (payload[i] == '1') { if (++ones == 5 && i + 1 < payload.size() && payload[i + 1] == '0') ++i; }
+        else ones = 0;
     }
-    return result;
+    return res;
 }
 
-// Helper functions
-string toBinary(const string& data) {
-    string binary;
-    for (char c : data) binary += bitset<8>(c).to_string();
-    return binary;
+// ASCII to binary
+string toBin(const string& s) {
+    string bin;
+    for (char c : s) bin += bitset<8>(c).to_string();
+    return bin;
 }
 
-void printBinary(const string& binary) {
-    for (size_t i = 0; i < binary.length(); i++) {
-        cout << binary[i];
-        if ((i + 1) % 8 == 0) cout << " ";
-    }
-    cout << endl;
-}
-
+// Create frames
 vector<string> createFrames(const string& data, const vector<int>& sizes) {
     vector<string> frames;
     size_t pos = 0;
-    for (int size : sizes) {
-        if (pos >= data.length()) break;
-        size_t len = min(data.length() - pos, static_cast<size_t>(size));
-        frames.push_back(data.substr(pos, len));
-        pos += len;
+    for (int s : sizes) {
+        if (pos >= data.size()) break;
+        frames.push_back(data.substr(pos, min<size_t>(s, data.size() - pos)));
+        pos += s;
     }
-    if (pos < data.length()) frames.push_back(data.substr(pos));
+    if (pos < data.size()) frames.push_back(data.substr(pos));
     return frames;
-}
-
-// Print functions
-void printByteStuffing(size_t frameNum, const string& original, const string& stuffed, const string& destuffed) {
-    cout << "\nFrame " << frameNum << ":\nOriginal: " << original << "\nStuffed : " << stuffed << "\nDestuffed: " << destuffed << endl;
-}
-
-void printBitStuffing(size_t frameNum, const string& originalText, const string& originalBinary, const string& stuffed, const string& destuffed) {
-    cout << "\nFrame " << frameNum << ":\nOriginal: " << originalText << " (Binary: ";
-    printBinary(originalBinary);
-    cout << ")\nStuffed : ";
-    printBinary(stuffed);
-    cout << "Destuffed: ";
-    printBinary(destuffed);
 }
 
 int main() {
     string data;
     int stuffType, frameType;
-    cout << "=== Data Framing with Stuffing ===\nEnter data: ";
+    cout << "Enter data: ";
     getline(cin, data);
-    cout << "Select: 1.Byte Stuffing or 2.Bit Stuffing: ";
+    cout << "1. Byte Stuffing 2. Bit Stuffing: ";
     cin >> stuffType;
-    cout << "Select: 1.Fixed Size or 2.Variable Size Frames: ";
+    cout << "1. Fixed Size 2. Variable Size: ";
     cin >> frameType;
 
-    vector<int> frameSizes;
+    vector<int> sizes;
     if (frameType == 1) {
-        int size;
-        cout << "Enter frame size: ";
-        cin >> size;
-        frameSizes.assign((data.length() + size - 1) / size, size);
+        int s;
+        cout << "Frame size: ";
+        cin >> s;
+        sizes.assign((data.size() + s - 1) / s, s);
     } else {
-        int count;
-        cout << "Enter number of frames: ";
-        cin >> count;
-        frameSizes.resize(count);
-        for (int i = 0; i < count; i++) {
-            cout << "Enter size for frame " << (i + 1) << ": ";
-            cin >> frameSizes[i];
+        int n;
+        cout << "Number of frames: ";
+        cin >> n;
+        sizes.resize(n);
+        for (int i = 0; i < n; ++i) {
+            cout << "Size for frame " << i + 1 << ": ";
+            cin >> sizes[i];
         }
     }
 
-    vector<string> frames = createFrames(data, frameSizes);
-    cout << "\n=== " << (stuffType == 1 ? "Byte" : "Bit") << " Stuffing Results ===" << endl;
-    for (size_t i = 0; i < frames.size(); i++) {
+    vector<string> frames = createFrames(data, sizes);
+    cout << "\n=== " << (stuffType == 1 ? "Byte" : "Bit") << " Stuffing ===\n";
+    for (size_t i = 0; i < frames.size(); ++i) {
+        cout << "\nFrame " << i + 1 << ":\n";
         if (stuffType == 1) {
             string stuffed = byteStuff(frames[i]);
             string destuffed = byteDestuff(stuffed);
-            printByteStuffing(i + 1, frames[i], stuffed, destuffed);
+            cout << "Original: " << frames[i] << "\nStuffed: " << stuffed << "\nDestuffed: " << destuffed << endl;
         } else {
-            string binary = toBinary(frames[i]);
-            string stuffed = bitStuff(binary);
+            string bin = toBin(frames[i]);
+            string stuffed = bitStuff(bin);
             string destuffed = bitDestuff(stuffed);
-            printBitStuffing(i + 1, frames[i], binary, stuffed, destuffed);
+            cout << "Original: " << frames[i] << "\nBinary: " << bin << "\nStuffed: " << stuffed << "\nDestuffed: " << destuffed << endl;
         }
     }
     return 0;
